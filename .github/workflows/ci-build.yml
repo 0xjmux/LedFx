@@ -237,3 +237,8 @@ jobs:
         run: |
           pip install -r ./docs/requirements-docs.txt
           sphinx-build -D todo_include_todos=0 docs ./docs/_build/html/
+      - uses: actions/upload-artifact@v4
+        name: Upload artifacts so we can actually see them (temporary)
+        with:
+          name: build_html
+          path: ./docs/_build/html/
