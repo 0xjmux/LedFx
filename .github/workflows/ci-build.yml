@@ -223,9 +223,15 @@ jobs:
         run: |
           poetry run ledfx -vv --ci-smoke-test
 
+
+          
   build-ledfx-docs:
     name: Build LedFx Documentation
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
     steps:
-      - name: Sphinx Build
-        uses: ammaraskar/sphinx-action@0.4
+      - name: directly build sphinx
+        run: |
+          pip install -r requirements.txt
+          sphinx-build -D todo_include_todos=0 docs ./docs/_build/html/
