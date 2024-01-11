@@ -229,6 +229,10 @@ jobs:
     name: Build LedFx Documentation
     runs-on: ubuntu-latest
     steps:
+      - name: Check out code from GitHub
+        uses: actions/checkout@v4
+      - name: Update PATH
+        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
       - name: directly build sphinx
         run: |
           pip install -r ./docs/requirements-docs.txt
