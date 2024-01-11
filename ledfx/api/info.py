@@ -15,6 +15,8 @@ class InfoEndpoint(RestEndpoint):
         """
         Get information about the LedFx Controller.
 
+        TESTESTESTESTEST
+
         Returns:
             web.Response: The response containing the controller information.
         """
