@@ -228,8 +228,6 @@ jobs:
   build-ledfx-docs:
     name: Build LedFx Documentation
     runs-on: ubuntu-latest
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
     steps:
       - name: directly build sphinx
         run: |
