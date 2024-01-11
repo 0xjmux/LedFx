@@ -17,7 +17,7 @@ CORE_CONFIG_KEYS = set(map(str, CORE_CONFIG_SCHEMA.schema.keys()))
 
 def validate_and_trim_config(config, schema, node):
     for key in config.keys():
-        if key not in PERMITTED_KEYS[node]:
+        if key not in PERMITTED_KEYS[node] and key != "user_presets":
             raise KeyError(f"Unknown/forbidden {node} config key: '{key}'")
 
     validated_config = schema(config)
@@ -27,12 +27,18 @@ def validate_and_trim_config(config, schema, node):
 class ConfigEndpoint(RestEndpoint):
     ENDPOINT_PATH = "/api/config"
 
-    async def get(self, request) -> web.Response:
+    async def get(self, request: web.Request) -> web.Response:
         """
         Get complete ledfx config.
         You may ask for a specific key/keys in the request body
         eg. "audio" will return audio config
         eg. ["audio", "melbanks"] will return audio and melbanks config
+
+        Parameters:
+        - request (web.Request): The request object.
+
+        Returns:
+        - web.Response: The response object containing the ledfx config.
         """
         keys = set()
 
@@ -40,11 +46,7 @@ class ConfigEndpoint(RestEndpoint):
             try:
                 wanted_keys = await request.json()
             except JSONDecodeError:
-                response = {
-                    "status": "failed",
-                    "reason": "JSON Decoding failed",
-                }
-                return web.json_response(data=response, status=400)
+                return await self.json_decode_error()
 
             if isinstance(wanted_keys, list):
                 keys.update(wanted_keys)
@@ -69,12 +71,14 @@ class ConfigEndpoint(RestEndpoint):
                 config = WLED_CONFIG_SCHEMA(config)
 
             response[key] = config
-
-        return web.json_response(data=response, status=200)
+        return await self.bare_request_success(response)
 
     async def delete(self) -> web.Response:
         """
         Resets config to defaults and restarts ledfx
+
+        Returns:
+            web.Response: The response indicating the success of the operation.
         """
         self._ledfx.config = CORE_CONFIG_SCHEMA({})
 
@@ -83,21 +87,21 @@ class ConfigEndpoint(RestEndpoint):
             config_dir=self._ledfx.config_dir,
         )
 
-        response = {
-            "status": "success",
-            "payload": {
-                "type": "success",
-                "reason": "Config reset to default values",
-            },
-        }
-
         self._ledfx.loop.call_soon_threadsafe(self._ledfx.stop, 4)
+        return await self.request_success(
+            "success", "Config reset to default values"
+        )
 
-        return web.json_response(data=response, status=200)
-
-    async def post(self, request) -> web.Response:
+    async def post(self, request: web.Request) -> web.Response:
         """
         Loads a complete config and restarts ledfx
+
+        Parameters:
+        - request (web.Request): The request containing the config to load.
+
+        Returns:
+        - web.Response: The HTTP response object
+
         """
         try:
             config = await request.json()
@@ -125,25 +129,25 @@ class ConfigEndpoint(RestEndpoint):
             )
 
             self._ledfx.loop.call_soon_threadsafe(self._ledfx.stop, 4)
-
-            return web.json_response(data={"status": "success"}, status=200)
+            return await self.request_success()
 
         except JSONDecodeError:
-            response = {
-                "status": "failed",
-                "reason": "JSON Decoding failed",
-            }
-            return web.json_response(data=response, status=400)
-        except vol.MultipleInvalid as msg:
-            response = {
-                "status": "failed",
-                "payload": {"type": "warning", "reason": str(msg)},
-            }
-            return web.json_response(data=response, status=400)
+            return await self.json_decode_error()
 
-    async def put(self, request) -> web.Response:
+        except vol.MultipleInvalid as msg:
+            error_message = f"Error loading config: {msg}"
+            _LOGGER.warning(error_message)
+            return await self.internal_error("error", error_message)
+
+    async def put(self, request: web.Request) -> web.Response:
         """
         Updates ledfx config
+
+        Parameters:
+            request (web.Request): The request containing the config to update.
+
+        Returns:
+            web.Response: The HTTP response object
         """
         try:
             config = await request.json()
@@ -203,6 +207,8 @@ class ConfigEndpoint(RestEndpoint):
                         "create_segments",
                         "scan_on_startup",
                         "user_presets",
+                        "transmission_mode",
+                        "visualisation_maxlen",
                     ]
                 )
                 and len(core_config) == 1
@@ -213,19 +219,12 @@ class ConfigEndpoint(RestEndpoint):
                 config=self._ledfx.config,
                 config_dir=self._ledfx.config_dir,
             )
-
-            return web.json_response(data={"status": "success"}, status=200)
+            return await self.request_success()
 
         except JSONDecodeError:
-            response = {
-                "status": "failed",
-                "reason": "JSON Decoding failed",
-            }
-            return web.json_response(data=response, status=400)
+            return await self.json_decode_error()
 
         except (KeyError, vol.MultipleInvalid) as msg:
-            response = {
-                "status": "failed",
-                "payload": {"type": "warning", "reason": str(msg)},
-            }
-            return web.json_response(data=response, status=400)
+            error_message = f"Error updating config: {msg}"
+            _LOGGER.warning(error_message)
+            return await self.internal_error("error", error_message)

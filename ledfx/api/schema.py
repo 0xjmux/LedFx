@@ -26,7 +26,7 @@ class SchemaEndpoint(RestEndpoint):
         "core",
     }
 
-    async def get(self, request) -> web.Response:
+    async def get(self, request: web.Request) -> web.Response:
         """
         Get ledfx schemas.
         You may ask for a specific schema/schemas in the request body
@@ -40,11 +40,7 @@ class SchemaEndpoint(RestEndpoint):
             try:
                 wanted_schemas = await request.json()
             except JSONDecodeError:
-                response = {
-                    "status": "failed",
-                    "reason": "JSON Decoding failed",
-                }
-                return web.json_response(data=response, status=400)
+                return await self.json_decode_error()
 
             if isinstance(wanted_schemas, list):
                 schemas.update(wanted_schemas)
