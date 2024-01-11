@@ -223,3 +223,9 @@ jobs:
         run: |
           poetry run ledfx -vv --ci-smoke-test
 
+  build-ledfx-docs:
+    name: Build LedFx Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sphinx Build
+        uses: ammaraskar/sphinx-action@0.4
